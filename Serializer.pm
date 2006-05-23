@@ -6,7 +6,7 @@ use base qw/Catalyst::Base/;
 use Data::Serializer;
 use Data::Dumper;
 
-our $VERSION = "0.01";
+our $VERSION = "0.02";
 
 __PACKAGE__->mk_classdata('_serializer');
 
@@ -47,17 +47,23 @@ pass any options, the following are used:
             serializer_token => '1',
             options          => {},
 
-They are the same as the Data::Serializer defaults.  The only additional
-option is:
+They are the same as the Data::Serializer defaults.  The two additional
+options are:
 
 =head3 astext
 
 Setting this to a true value will allow you to pass the "astext=1" param to
 any request processed by this View.  The results will be the contents of
-$c->stash passed through Data::Dumper, as opposed to your Serialized object.
+$c->stash passed through to Data::Dumper, as opposed to your Serialized object.
 
 This should be turned off in production environments concerned about security.
 It's great for debugging, though!
+
+=head3 raw
+
+Setting this to a true value will cause Data::Serializer to call the "raw" version
+of the regular serialize function (raw_serialize).  The effect is the same as just using
+the underlying Serializer directly.
 
 =head2 OVERLOADED METHODS
 
@@ -71,7 +77,7 @@ it will return the output of the stash via Data::Dumper.
 
 sub process {
     my ($self, $c) = @_;
-    my $serializer = $self->_serializer;
+    my $serializer = $self->_serializer;    
     unless ($serializer) {
         my %defaults = (
             serializer       => 'Data::Dumper',
@@ -101,7 +107,11 @@ sub process {
     if ($c->req->param("astext") && $c->config->{'serializer'}->{'astext'}) {
         $c->response->output(Data::Dumper->Dump([ $c->stash ]));
     } else {
-        $c->response->output($serializer->serialize($c->stash));
+        if ($c->config->{'serializer'}->{'raw'}) {
+            $c->response->output($serializer->raw_serialize($c->stash));
+        } else {
+            $c->response->output($serializer->serialize($c->stash));
+        }
     }
     return 1;
 }
